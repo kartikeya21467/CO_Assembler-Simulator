@@ -52,7 +52,15 @@ def add_inst(inst):
     s=s+'00'+reg_bin[inst[1]]+reg_bin[inst[2]]+reg_bin[inst[3]]
     print(s)
 
+def sub_inst(inst):
+    s='10001'
+    s=s+'00'+reg_bin[inst[1]]+reg_bin[inst[2]]+reg_bin[inst[3]]
+    print(s)
 
+def mov_reg_inst(inst):
+    s='10011'
+    s=s+'00000'+reg_bin[inst[1]]+reg_bin[inst[2]]
+    print(s)
 
 assemb_inst=sys.stdin.read()
 
@@ -68,3 +76,8 @@ for i in lines:
 
     if(inst[0]=='add'):
         add_inst(inst)
+    elif(inst[0]=='sub'):
+        sub_inst(inst)
+    elif(inst[0]=='mov' and inst[2] in reg_bin):
+        mov_reg_inst(inst)
+    
