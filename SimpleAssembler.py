@@ -1,6 +1,4 @@
-
 import sys
-
 
 reg_bin={'R0':'000','R1':'001','R2':'010','R3':'011','R4':'100','R5':'101',
         'R6':'110','FLAGS':'111'}
@@ -46,7 +44,10 @@ inst_type={'add':'A',
          'jlt':'E',
          'jgt':'E',
          'je':'E',
-         'hlt':'F'}
+         'hlt':'F',
+         'addf':'A',
+         'subf':'A',
+         'movf':'B'}
 
 mem_addr=[]
 var_addr=[]
@@ -55,6 +56,64 @@ flag_var=1
 eflag=1
 che=0
 ls_str=0
+
+def dec_bin(n):
+    if (n == 0):
+        return 0
+    c=0
+    bini=""
+    while (c<5):
+        d = n*2
+        c+=1
+        if (d>1):
+            n=d-1
+            bini += "1"
+        elif (d<1):
+            n=d
+            bini += "0"
+        elif (d==1):
+            bini += "1"
+            break
+    if (len(bini)<5):
+        bini += (6-len(bini))*"0"
+    return bini
+
+def bin_dec(n):
+    j=1
+    sum=0
+    for i in n:
+        sum += (2**(0-j))*int(i)
+        j+=1
+    return sum   
+
+def dec_ieee(n):
+    n = float(n)
+    wh = int(n)
+    len_bin = len(str(bin(wh)[2:]))
+    dec = float(n-wh)
+    bin_wh = bin(wh)[2:]
+    bi = str(bin_wh) + str(dec_bin(dec))
+    exp = bin(len(str(bin(wh)[2:]))-1)[2:]
+    exp = "0"*(3-len(exp))+exp
+    ans = str(exp) + bi[1:]
+    
+    if (ieee_dec(ans)!=n):
+
+        sys.stdout.write("Error @ line #"+str(j)+": float type cannot be represented in 8 bits"+'\n')
+    ans = ans[:8]
+    return ans
+
+def ieee_dec(ie):
+    ie = str(ie)
+    exp_bin = ie[:3]
+    exp = int(exp_bin,2)
+    wh_bin = "1"+ie[3:exp+3]
+    if (len(wh_bin)<(exp+1)):
+        wh_bin = wh_bin + ("0"*(exp+1-len(wh_bin)))
+    wh = int(wh_bin,2)
+    bin = ie[exp+3:]
+    dec = wh+bin_dec(bin)
+    return dec
 
 def checkvar(line):
     global che
@@ -100,6 +159,33 @@ def mov_imm_inst(inst):
     s=s+reg_bin[inst[1]]+'0'*a+t
     # sys.stdout.write(s+'\n')
     output.append(s)
+
+def movf_imm_inst(inst):
+    global flag_var
+    s = '00010'
+    n = float(inst[2][1:])
+    if (len(str(dec_bin(n)))>8):
+        sys.stdout.write("Error @ line #"+str(j)+": float type cannot be represented in 8 bits"+'\n')
+        flag_var=0
+    else:
+        print(dec_ieee(n))
+        s=s+reg_bin[inst[1]]+dec_ieee(n)
+        output.append(s)
+
+def addf_inst(inst):
+    s='00000'
+    s=s+"00"+reg_bin[inst[1]]+reg_bin[inst[2]]+reg_bin[inst[3]]
+    # print(s)
+    # sys.stdout.write(s+'\n')
+    output.append(s)
+
+def subf_inst(inst):
+    s='00001'
+    s=s+"00"+reg_bin[inst[1]]+reg_bin[inst[2]]+reg_bin[inst[3]]
+    # print(s)
+    # sys.stdout.write(s+'\n')
+    output.append(s)
+
 
 def ld_inst(inst):
     global flag_var
@@ -270,8 +356,6 @@ def hlt_inst(inst):
     output.append(s)
 
 
-
-
 assemb_inst=sys.stdin.read()
 
 lines=assemb_inst.split('\n')
@@ -325,7 +409,7 @@ def func_caller(inst):
     global eflag
     try:
         if ('FLAGS' in inst):
-            if (inst[0]=='mov' and inst[2]=='FLAGS'):
+            if (inst[0]=='mov' and inst[1]=='FLAGS' and inst[2] in reg_bin):
                 pass
             else:
                 # print("Error @ line #",j,": Incorrect use of FLAGS")
@@ -345,6 +429,14 @@ def func_caller(inst):
                 return
             add_inst(inst)
 
+        elif(inst[0]=='addf'):
+            if(inst[1] not in reg_bin or inst[2] not in reg_bin or inst[3] not in reg_bin):
+                # print("Error @ line #",j,": Invalid Register")
+                sys.stdout.write("Error @ line #"+str(j)+": Invalid Register"+'\n')
+                eflag=0
+                return
+            addf_inst(inst)
+
         elif(inst[0]=='sub'):
             if(inst[1] not in reg_bin or inst[2] not in reg_bin or inst[3] not in reg_bin):
                 # print("Error @ line #",j,": Invalid Register")
@@ -352,6 +444,14 @@ def func_caller(inst):
                 eflag=0
                 return
             sub_inst(inst)
+
+        elif(inst[0]=='subf'):
+            if(inst[1] not in reg_bin or inst[2] not in reg_bin or inst[3] not in reg_bin):
+                # print("Error @ line #",j,": Invalid Register")
+                sys.stdout.write("Error @ line #"+str(j)+": Invalid Register"+'\n')
+                eflag=0
+                return
+            subf_inst(inst)
 
         elif(inst[0]=='mov'):
             if(inst[2][0]=='$'):
@@ -390,6 +490,20 @@ def func_caller(inst):
                     eflag=0
                     return
                 mov_reg_inst(inst)
+
+        elif(inst[0]=='movf'):
+                try:
+                    if(inst[1] not in reg_bin):
+                        sys.stdout.write("Error @ line #"+str(j)+": Invalid Register"+'\n')
+                        eflag=0
+                        return
+                    if (inst[2][0] != '$'):
+                        sys.stdout.write("Error @ line #"+str(j)+": Invalid Imm"+'\n')
+                        eflag=0
+                    movf_imm_inst(inst)
+                except ValueError:
+                    sys.stdout.write("Error @ line #"+str(j)+": Invalid Imm value"+'\n')
+                    eflag = 0
         
         elif(inst[0]=='ld'):
             if(inst[1] not in reg_bin):
@@ -612,20 +726,11 @@ for i in lines:
 
 
 if(lines!=['']):
-    # if(lines[-1]==''):
-
-    #     if(lines[-2]!='hlt'):
-    
-    #         # print("Error: No hlt function at end")
-    #         sys.stdout.write("Error: No hlt function at end"+'\n')
-    #         eflag=0
-    # else:
-    #     if(lines[-1]!='hlt'):
-    #         # print("Error: No hlt function at end")
-    #         sys.stdout.write("Error: No hlt function at end"+'\n')
-    #         eflag=0
+    ll = lines[-1].split()
     if(lines[-1]!='hlt'):
-            # print("Error: No hlt function at end")
+        if (ll[1]=='hlt' and ll[0][-1:]==':'):
+            pass
+        else:
             sys.stdout.write("Error: No hlt function at end"+'\n')
             eflag=0
 else:
@@ -637,4 +742,3 @@ if(eflag==1):
     for i in output:
         # print(i)
         sys.stdout.write(i+'\n')
-        
